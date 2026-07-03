@@ -1,7 +1,7 @@
 import { NekopoiClient } from './src/index.js';
 
 async function runDemo() {
-  console.log('=== Nekopoi API Wrapper Demo ===');
+  console.log('====== Nekopoi API Wrapper Demo ======');
   const client = new NekopoiClient();
 
   try {
