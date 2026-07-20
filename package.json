@@ -1,7 +1,7 @@
 {
   "name": "nekopoi-api",
   "version": "1.0.0",
-  "description": "API Wrapper for nekopoi.care website",
+  "description": "An unofficial, fully-typed API wrapper for Nekopoi built with TypeScript and Node.js featuring scrapping data",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -17,7 +17,7 @@
     "anime",
     "hentai"
   ],
-  "author": "",
+  "author": "Andhika Dwi Maulana",
   "license": "ISC",
   "dependencies": {
     "axios": "^1.7.9",
