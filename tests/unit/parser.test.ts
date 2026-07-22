@@ -18,15 +18,9 @@ describe('parser helpers', () => {
   });
 
   it('extractBgImage handles quoted and unquoted urls', () => {
-    expect(extractBgImage("background-image: url('https://cdn/a.jpg')")).toBe(
-      'https://cdn/a.jpg'
-    );
-    expect(extractBgImage('background-image: url("https://cdn/b.jpg")')).toBe(
-      'https://cdn/b.jpg'
-    );
-    expect(extractBgImage('background-image:url(https://cdn/c.jpg)')).toBe(
-      'https://cdn/c.jpg'
-    );
+    expect(extractBgImage("background-image: url('https://cdn/a.jpg')")).toBe('https://cdn/a.jpg');
+    expect(extractBgImage('background-image: url("https://cdn/b.jpg")')).toBe('https://cdn/b.jpg');
+    expect(extractBgImage('background-image:url(https://cdn/c.jpg)')).toBe('https://cdn/c.jpg');
     expect(extractBgImage('')).toBe('');
     expect(extractBgImage(undefined)).toBe('');
   });

@@ -56,9 +56,7 @@ export function createHttpClient(
   baseUrlOrOptions: string | NekopoiClientOptions = BASE_URL
 ): AxiosInstance {
   const options: NekopoiClientOptions =
-    typeof baseUrlOrOptions === 'string'
-      ? { baseUrl: baseUrlOrOptions }
-      : (baseUrlOrOptions ?? {});
+    typeof baseUrlOrOptions === 'string' ? { baseUrl: baseUrlOrOptions } : (baseUrlOrOptions ?? {});
 
   const baseURL = options.baseUrl || BASE_URL;
   const retries = options.retries ?? 2;

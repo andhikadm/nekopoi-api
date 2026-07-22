@@ -22,9 +22,7 @@ export function assertNonEmptyString(value: string, field: string): void {
 export function assertSearchQuery(query: string): void {
   assertNonEmptyString(query, 'query');
   if (query.length > MAX_QUERY_LENGTH) {
-    throw new NekopoiValidationError(
-      `Invalid query: max length is ${MAX_QUERY_LENGTH} characters`
-    );
+    throw new NekopoiValidationError(`Invalid query: max length is ${MAX_QUERY_LENGTH} characters`);
   }
 }
 
@@ -33,9 +31,7 @@ export function assertSlug(slug: string, field = 'slug'): string {
   assertNonEmptyString(slug, field);
   const cleaned = slug.trim().replace(/^\/+|\/+$/g, '');
   if (cleaned.includes('..') || cleaned.includes('/') || cleaned.includes('\\')) {
-    throw new NekopoiValidationError(
-      `Invalid ${field}: path separators and ".." are not allowed`
-    );
+    throw new NekopoiValidationError(`Invalid ${field}: path separators and ".." are not allowed`);
   }
   if (!SLUG_PATTERN.test(cleaned)) {
     throw new NekopoiValidationError(

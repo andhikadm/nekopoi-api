@@ -5,9 +5,11 @@ import { NekopoiParseError } from '../../src/errors.js';
 
 describe('html helpers', () => {
   it('isChallengeHtml detects common challenge pages', () => {
-    expect(isChallengeHtml('<html><title>Just a moment...</title><body>Checking your browser</body></html>')).toBe(
-      true
-    );
+    expect(
+      isChallengeHtml(
+        '<html><title>Just a moment...</title><body>Checking your browser</body></html>'
+      )
+    ).toBe(true);
     expect(
       isChallengeHtml(
         '<html><body><div class="cf-browser-verification">wait</div>Ray ID: abc</body></html>'

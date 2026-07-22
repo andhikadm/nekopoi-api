@@ -85,9 +85,7 @@ describe('NekopoiClient Integration Tests', () => {
   }, 30000);
 
   it('should fetch details of a series', async () => {
-    const series = await client.getSeriesDetails(
-      'front-innocent-mou-hitotsu-no-lady-innocent'
-    );
+    const series = await client.getSeriesDetails('front-innocent-mou-hitotsu-no-lady-innocent');
     expect(series).toHaveProperty('title');
     expect(series).toHaveProperty('status');
     expect(series).toHaveProperty('totalEpisodes');

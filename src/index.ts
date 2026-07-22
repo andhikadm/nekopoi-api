@@ -6,4 +6,13 @@ export {
   NekopoiValidationError,
   NekopoiParseError,
 } from './errors.js';
+export {
+  toPaginatedResult,
+  isEmptyPage,
+  hasNextPage,
+  nextPageNumber,
+  mapPage,
+  filterPage,
+  collectAllPages,
+} from './utils/pagination.js';
 export * from './types/index.js';

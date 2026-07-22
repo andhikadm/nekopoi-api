@@ -36,9 +36,7 @@ describe('validate', () => {
     expect(assertUrlOrSlug('https://nekopoi.care/foo/')).toContain('https://');
     expect(assertUrlOrSlug('my-post-slug')).toBe('my-post-slug');
     expect(() => assertUrlOrSlug('ftp://bad')).toThrow(NekopoiValidationError);
-    expect(() => assertUrlOrSlug('https://nekopoi.care/../secret')).toThrow(
-      NekopoiValidationError
-    );
+    expect(() => assertUrlOrSlug('https://nekopoi.care/../secret')).toThrow(NekopoiValidationError);
     expect(() => assertUrlOrSlug('')).toThrow(NekopoiValidationError);
   });
 });

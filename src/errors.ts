@@ -2,10 +2,7 @@ export class NekopoiError extends Error {
   readonly path?: string;
   readonly statusCode?: number;
 
-  constructor(
-    message: string,
-    options?: { cause?: unknown; path?: string; statusCode?: number }
-  ) {
+  constructor(message: string, options?: { cause?: unknown; path?: string; statusCode?: number }) {
     super(message, options?.cause !== undefined ? { cause: options.cause } : undefined);
     this.name = 'NekopoiError';
     this.path = options?.path;
@@ -21,10 +18,7 @@ export class NekopoiValidationError extends NekopoiError {
 }
 
 export class NekopoiScrapeError extends NekopoiError {
-  constructor(
-    message: string,
-    options?: { cause?: unknown; path?: string; statusCode?: number }
-  ) {
+  constructor(message: string, options?: { cause?: unknown; path?: string; statusCode?: number }) {
     super(message, options);
     this.name = 'NekopoiScrapeError';
   }
@@ -32,10 +26,7 @@ export class NekopoiScrapeError extends NekopoiError {
 
 /** HTML fetched successfully but could not be parsed (selectors missing, challenge page, etc.). */
 export class NekopoiParseError extends NekopoiError {
-  constructor(
-    message: string,
-    options?: { cause?: unknown; path?: string; statusCode?: number }
-  ) {
+  constructor(message: string, options?: { cause?: unknown; path?: string; statusCode?: number }) {
     super(message, options);
     this.name = 'NekopoiParseError';
   }
