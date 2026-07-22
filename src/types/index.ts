@@ -1,31 +1,37 @@
+export type ContentType =
+  | 'Hentai'
+  | '3D Hentai'
+  | 'Live2D Hentai'
+  | 'Cosplay'
+  | 'CAV'
+  | 'JAV'
+  | string;
+
+export type SeriesStatus = 'Ongoing' | 'Completed' | string;
+
 export interface LatestRelease {
   title: string;
   url: string;
   thumbnail: string;
-  type: string; // misal "Hentai", "3D Hentai", "Cosplay"
+  type: ContentType;
   uploadedDate: string;
 }
 
-export interface SearchResult {
-  title: string;
-  url: string;
-  thumbnail: string;
-  type: string;
-  uploadedDate: string;
-}
+/** Search/category/genre list items share the same shape as latest releases. */
+export type SearchResult = LatestRelease;
 
 export interface DownloadLink {
-  host: string; // misal "Sendcm", "Mega", "Google Drive"
+  host: string;
   url: string;
 }
 
 export interface DownloadResolution {
-  resolution: string; // misal "360p", "480p", "720p", "1080p"
+  resolution: string;
   links: DownloadLink[];
 }
 
 export interface EpisodeDownload {
-  episode: string; // misal "Episode 1" atau "Full Episode"
+  episode: string;
   downloads: DownloadResolution[];
 }
 
@@ -47,8 +53,8 @@ export interface AnimeSeries {
   thumbnail?: string;
   japaneseTitle?: string;
   producer?: string;
-  type?: string;
-  status?: string; // misal "Ongoing", "Completed"
+  type?: ContentType;
+  status?: SeriesStatus;
   genres?: string[];
   duration?: string;
   score?: string;
@@ -63,7 +69,7 @@ export interface GenreItem {
 export interface EpisodeItem {
   title: string;
   url: string;
-  episodeNumber: string; // misal "Ep 1"
+  episodeNumber: string;
   uploadedDate: string;
   thumbnail: string;
 }
@@ -73,8 +79,8 @@ export interface SeriesDetail {
   japaneseTitle?: string;
   thumbnail: string;
   synopsis: string;
-  type: string;
-  status: string;
+  type: ContentType;
+  status: SeriesStatus;
   totalEpisodes: string;
   releaseDate?: string;
   producer?: string;
@@ -84,3 +90,8 @@ export interface SeriesDetail {
   episodes: EpisodeItem[];
 }
 
+export interface NekopoiClientOptions {
+  baseUrl?: string;
+  timeout?: number;
+  headers?: Record<string, string>;
+}
