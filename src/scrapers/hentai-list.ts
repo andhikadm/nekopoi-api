@@ -1,7 +1,7 @@
 import type { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
 import type { AnimeSeries } from '../types/index.js';
-import { cleanText } from '../utils/parser.js';
+import { cleanText, parseScore } from '../utils/parser.js';
 import {
   NekopoiParseError,
   NekopoiScrapeError,
@@ -32,7 +32,7 @@ export async function scrapeHentaiList(axiosInstance: AxiosInstance): Promise<An
       let status: string | undefined;
       let genres: string[] = [];
       let duration: string | undefined;
-      let score: string | undefined;
+      let score: number | null | undefined;
 
       if (tooltipHtml) {
         const $$ = cheerio.load(tooltipHtml);
@@ -60,7 +60,7 @@ export async function scrapeHentaiList(axiosInstance: AxiosInstance): Promise<An
           } else if (text.includes('Durasi')) {
             duration = cleanText(text.replace('Durasi:', ''));
           } else if (text.includes('Skor') || text.includes('Score')) {
-            score = cleanText(text.replace(/Skor:|Score:/, ''));
+            score = parseScore(text.replace(/Skor:|Score:/, ''));
           }
         });
       }

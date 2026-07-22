@@ -4,7 +4,14 @@ import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'demo.ts', 'eslint.config.js'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'coverage/**',
+      'demo.ts',
+      'eslint.config.js',
+      'vitest.config.ts',
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

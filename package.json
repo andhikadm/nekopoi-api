@@ -1,6 +1,6 @@
 {
   "name": "nekopoi-api",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "An unofficial, fully-typed API wrapper for Nekopoi built with TypeScript and Node.js featuring scraping data",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,7 +14,8 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -47,7 +48,7 @@
   },
   "homepage": "https://github.com/andhikadm/nekopoi-api#readme",
   "engines": {
-    "node": ">=18"
+    "node": ">=18.18"
   },
   "dependencies": {
     "axios": "^1.7.9",

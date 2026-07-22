@@ -97,7 +97,7 @@ describe('scraper unit tests (fixtures)', () => {
     expect(series.japaneseTitle).toBe('フロントイノセント');
     expect(series.status).toBe('Completed');
     expect(series.totalEpisodes).toBe('2');
-    expect(series.score).toBe('7.8');
+    expect(series.score).toBe(7.8);
     expect(series.genres).toEqual(['Drama', 'Romance']);
     expect(series.thumbnail).toBe('https://cdn.example/poster.jpg');
     expect(series.episodes).toHaveLength(2);
@@ -125,7 +125,7 @@ describe('scraper unit tests (fixtures)', () => {
     expect(list).toHaveLength(2);
     expect(list[0].title).toBe('Sample Series Full');
     expect(list[0].status).toBe('Ongoing');
-    expect(list[0].score).toBe('8.1');
+    expect(list[0].score).toBe(8.1);
     expect(list[0].genres).toEqual(['Action', 'Drama']);
     expect(list[0].thumbnail).toBe('https://cdn.example/tt.jpg');
     expect(list[1].title).toBe('Another Series');
@@ -175,8 +175,26 @@ describe('NekopoiClient validation', () => {
           timeout: 5000,
           retries: 1,
           minRequestIntervalMs: 100,
+          cacheTtlMs: 1000,
         })
     ).not.toThrow();
     expect(() => new NekopoiClient('https://mirror.example')).not.toThrow();
+  });
+
+  it('exposes axios instance and resolved options', () => {
+    const client = new NekopoiClient({
+      baseUrl: 'https://mirror.example',
+      timeout: 9000,
+      cacheTtlMs: 5000,
+      cacheMaxEntries: 10,
+    });
+    expect(client.getAxios()).toBeDefined();
+    expect(typeof client.getAxios().get).toBe('function');
+    expect(client.getOptions()).toMatchObject({
+      baseUrl: 'https://mirror.example',
+      timeout: 9000,
+      cacheTtlMs: 5000,
+      cacheMaxEntries: 10,
+    });
   });
 });

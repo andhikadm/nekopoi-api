@@ -12,14 +12,15 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
+        # Current LTS + active; avoid Node 20 (deprecated on GHA runners).
+        node-version: [22.x, 24.x]
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm

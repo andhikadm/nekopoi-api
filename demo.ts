@@ -110,7 +110,9 @@ async function runDemo() {
       console.log(`- Judul: ${hentaiList[0].title}`);
       console.log(`- URL: ${hentaiList[0].url}`);
       console.log(`- Status: ${hentaiList[0].status || '-'}`);
-      console.log(`- Skor: ${hentaiList[0].score || '-'}`);
+      console.log(
+        `- Skor: ${hentaiList[0].score === undefined || hentaiList[0].score === null ? '-' : hentaiList[0].score}`
+      );
     }
   } catch (error) {
     console.error('Terjadi kesalahan saat demo:', error);

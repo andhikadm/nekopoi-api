@@ -1,7 +1,7 @@
 import type { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
 import type { SeriesDetail, EpisodeItem } from '../types/index.js';
-import { cleanText, extractBgImage, resolveRequestPath } from '../utils/parser.js';
+import { cleanText, extractBgImage, parseScore, resolveRequestPath } from '../utils/parser.js';
 import {
   NekopoiParseError,
   NekopoiScrapeError,
@@ -36,7 +36,7 @@ export async function scrapeSeriesDetails(
     let releaseDate = '';
     let producer = '';
     let duration = '';
-    let score = '';
+    let score: number | null | undefined;
     const genres: string[] = [];
 
     $('.nk-series-meta-list ul li').each((_, el) => {
@@ -56,7 +56,7 @@ export async function scrapeSeriesDetails(
       } else if (text.includes('Durasi')) {
         duration = cleanText(text.replace('Durasi:', ''));
       } else if (text.includes('Skor')) {
-        score = cleanText(text.replace('Skor:', ''));
+        score = parseScore(text.replace('Skor:', ''));
       } else if (text.includes('Genre')) {
         $(el)
           .find('a')
@@ -105,7 +105,7 @@ export async function scrapeSeriesDetails(
       producer: producer || undefined,
       genres,
       duration: duration || undefined,
-      score: score || undefined,
+      score,
       episodes,
     };
   } catch (error) {

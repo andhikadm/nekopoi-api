@@ -36,6 +36,8 @@ API Wrapper tidak resmi (Unofficial API Wrapper) untuk website **nekopoi.care** 
 - 🛡️ **Input validation & typed errors**: Validasi slug/query/page dan error class khusus (`NekopoiValidationError`, `NekopoiScrapeError`, `NekopoiParseError`).
 - 🔁 **Retry & rate limit**: Exponential backoff untuk error sementara, plus interval request opsional.
 - 📄 **Pagination metadata**: Endpoint list mengembalikan `{ data, page, hasNext }`.
+- 💾 **Optional cache**: Cache in-memory berbasis TTL (`cacheTtlMs`) untuk mengurangi request berulang.
+- 🔌 **getAxios() / getOptions()**: Akses instance Axios dan snapshot konfigurasi client.
 
 ---
 
@@ -72,7 +74,13 @@ const clientWithOptions = new NekopoiClient({
   retries: 2,
   retryDelayMs: 300,
   minRequestIntervalMs: 250,
+  cacheTtlMs: 60_000, // cache hasil sukses selama 60 detik
 });
+
+// Akses axios / config
+clientWithOptions.getAxios().interceptors.request.use((cfg) => cfg);
+console.log(clientWithOptions.getOptions());
+clientWithOptions.clearCache();
 ```
 
 ---
@@ -259,7 +267,7 @@ export interface AnimeSeries {
   status?: SeriesStatus;
   genres?: string[];
   duration?: string;
-  score?: string;
+  score?: number | null;
 }
 
 export interface GenreItem {
@@ -288,7 +296,7 @@ export interface SeriesDetail {
   producer?: string;
   genres: string[];
   duration?: string;
-  score?: string;
+  score?: number | null;
   episodes: EpisodeItem[];
 }
 
@@ -298,6 +306,16 @@ export interface PaginatedResult<T> {
   hasNext: boolean;
 }
 
+export interface NekopoiClientConfig {
+  baseUrl: string;
+  timeout: number;
+  retries: number;
+  retryDelayMs: number;
+  minRequestIntervalMs: number;
+  cacheTtlMs: number;
+  cacheMaxEntries: number;
+}
+
 export interface NekopoiClientOptions {
   baseUrl?: string;
   timeout?: number;
@@ -305,6 +323,8 @@ export interface NekopoiClientOptions {
   retries?: number;
   retryDelayMs?: number;
   minRequestIntervalMs?: number;
+  cacheTtlMs?: number;
+  cacheMaxEntries?: number;
 }
 ```
 
