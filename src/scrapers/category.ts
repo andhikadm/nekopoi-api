@@ -1,8 +1,10 @@
-import { AxiosInstance } from 'axios';
+import type { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
-import { SearchResult } from '../types/index.js';
+import type { PaginatedResult, SearchResult } from '../types/index.js';
 import { cleanText, detectContentType, extractBgImage } from '../utils/parser.js';
-import { NekopoiScrapeError, getAxiosStatus, getErrorMessage } from '../errors.js';
+import { NekopoiParseError, NekopoiScrapeError, getAxiosStatus, getErrorMessage } from '../errors.js';
+import { assertParseableHtml, detectHasNextPage } from '../utils/html.js';
+import { toPaginatedResult } from '../utils/pagination.js';
 
 /**
  * Generic scraper for pages that list posts as `.nk-search-item`
@@ -10,11 +12,15 @@ import { NekopoiScrapeError, getAxiosStatus, getErrorMessage } from '../errors.j
  */
 export async function scrapePostList(
   axiosInstance: AxiosInstance,
-  path: string
-): Promise<SearchResult[]> {
+  path: string,
+  page: number = 1
+): Promise<PaginatedResult<SearchResult>> {
+  const currentPage = page > 0 ? page : 1;
+
   try {
     const { data } = await axiosInstance.get(path);
-    const $ = cheerio.load(data);
+    const html = typeof data === 'string' ? data : String(data);
+    const $ = cheerio.load(html);
     const results: SearchResult[] = [];
 
     $('.nk-search-item').each((_, element) => {
@@ -42,11 +48,19 @@ export async function scrapePostList(
       }
     });
 
-    return results;
+    // Empty archive is valid (unknown genre, high page number); only fail on challenge / wrong shell.
+    assertParseableHtml(html, path, {
+      resultCount: results.length,
+      allowEmpty: true,
+    });
+
+    return toPaginatedResult(results, currentPage, detectHasNextPage($, currentPage));
   } catch (error) {
     const status = getAxiosStatus(error);
-    if (status === 404) return [];
-    if (error instanceof NekopoiScrapeError) throw error;
+    if (status === 404) {
+      return toPaginatedResult([], currentPage, false);
+    }
+    if (error instanceof NekopoiScrapeError || error instanceof NekopoiParseError) throw error;
     throw new NekopoiScrapeError(
       `Failed to scrape post list for path ${path}: ${getErrorMessage(error)}`,
       { cause: error, path, statusCode: status }

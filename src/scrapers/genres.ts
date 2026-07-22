@@ -1,15 +1,22 @@
-import { AxiosInstance } from 'axios';
+import type { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
-import { GenreItem } from '../types/index.js';
+import type { GenreItem } from '../types/index.js';
 import { cleanText } from '../utils/parser.js';
-import { NekopoiScrapeError, getAxiosStatus, getErrorMessage } from '../errors.js';
+import {
+  NekopoiParseError,
+  NekopoiScrapeError,
+  getAxiosStatus,
+  getErrorMessage,
+} from '../errors.js';
+import { assertParseableHtml } from '../utils/html.js';
 
 export async function scrapeGenres(axiosInstance: AxiosInstance): Promise<GenreItem[]> {
   const path = '/genre-list/';
 
   try {
     const { data } = await axiosInstance.get(path);
-    const $ = cheerio.load(data);
+    const html = typeof data === 'string' ? data : String(data);
+    const $ = cheerio.load(html);
     const results: GenreItem[] = [];
 
     $('.nk-genre-list ul li a').each((_, element) => {
@@ -24,9 +31,15 @@ export async function scrapeGenres(axiosInstance: AxiosInstance): Promise<GenreI
       }
     });
 
+    assertParseableHtml(html, path, {
+      resultCount: results.length,
+      expectedMarkerSelector: '.nk-genre-list',
+      $,
+    });
+
     return results;
   } catch (error) {
-    if (error instanceof NekopoiScrapeError) throw error;
+    if (error instanceof NekopoiScrapeError || error instanceof NekopoiParseError) throw error;
     throw new NekopoiScrapeError(`Failed to scrape genres: ${getErrorMessage(error)}`, {
       cause: error,
       path,

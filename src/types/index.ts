@@ -90,8 +90,21 @@ export interface SeriesDetail {
   episodes: EpisodeItem[];
 }
 
+/** Envelope for list endpoints that support pagination. */
+export interface PaginatedResult<T> {
+  data: T[];
+  page: number;
+  hasNext: boolean;
+}
+
 export interface NekopoiClientOptions {
   baseUrl?: string;
   timeout?: number;
   headers?: Record<string, string>;
+  /** Max retry attempts for transient HTTP failures (default: 2). */
+  retries?: number;
+  /** Base delay in ms for exponential backoff (default: 300). */
+  retryDelayMs?: number;
+  /** Minimum interval between requests in ms (default: 0 = no rate limit). */
+  minRequestIntervalMs?: number;
 }

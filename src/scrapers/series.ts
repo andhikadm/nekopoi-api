@@ -1,8 +1,14 @@
-import { AxiosInstance } from 'axios';
+import type { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
-import { SeriesDetail, EpisodeItem } from '../types/index.js';
+import type { SeriesDetail, EpisodeItem } from '../types/index.js';
 import { cleanText, extractBgImage, resolveRequestPath } from '../utils/parser.js';
-import { NekopoiScrapeError, getAxiosStatus, getErrorMessage } from '../errors.js';
+import {
+  NekopoiParseError,
+  NekopoiScrapeError,
+  getAxiosStatus,
+  getErrorMessage,
+} from '../errors.js';
+import { assertParseableHtml } from '../utils/html.js';
 
 export async function scrapeSeriesDetails(
   axiosInstance: AxiosInstance,
@@ -12,7 +18,8 @@ export async function scrapeSeriesDetails(
 
   try {
     const { data } = await axiosInstance.get(targetPath);
-    const $ = cheerio.load(data);
+    const html = typeof data === 'string' ? data : String(data);
+    const $ = cheerio.load(html);
 
     const title = cleanText(
       $('.nk-series-info h2').text().replace(/^Unduh\s+["']|["']\s+Indonesian.*$/gi, '')
@@ -80,6 +87,12 @@ export async function scrapeSeriesDetails(
       }
     });
 
+    assertParseableHtml(html, targetPath, {
+      resultCount: title ? 1 : 0,
+      expectedMarkerSelector: '.nk-series-info',
+      $,
+    });
+
     return {
       title,
       japaneseTitle: japaneseTitle || undefined,
@@ -96,7 +109,7 @@ export async function scrapeSeriesDetails(
       episodes,
     };
   } catch (error) {
-    if (error instanceof NekopoiScrapeError) throw error;
+    if (error instanceof NekopoiScrapeError || error instanceof NekopoiParseError) throw error;
     throw new NekopoiScrapeError(
       `Failed to scrape series details: ${getErrorMessage(error)}`,
       { cause: error, path: targetPath, statusCode: getAxiosStatus(error) }

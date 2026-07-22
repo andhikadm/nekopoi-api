@@ -1,8 +1,14 @@
-import { AxiosInstance } from 'axios';
+import type { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
-import { AnimeDetail, EpisodeDownload, DownloadLink } from '../types/index.js';
+import type { AnimeDetail, EpisodeDownload, DownloadLink } from '../types/index.js';
 import { cleanText, resolveRequestPath } from '../utils/parser.js';
-import { NekopoiScrapeError, getAxiosStatus, getErrorMessage } from '../errors.js';
+import {
+  NekopoiParseError,
+  NekopoiScrapeError,
+  getAxiosStatus,
+  getErrorMessage,
+} from '../errors.js';
+import { assertParseableHtml } from '../utils/html.js';
 
 export async function scrapePost(
   axiosInstance: AxiosInstance,
@@ -12,7 +18,8 @@ export async function scrapePost(
 
   try {
     const { data } = await axiosInstance.get(targetPath);
-    const $ = cheerio.load(data);
+    const html = typeof data === 'string' ? data : String(data);
+    const $ = cheerio.load(html);
 
     const title = cleanText($('.nk-post-header h1').text());
     const thumbnail = $('.nk-featured-img img').attr('src') || '';
@@ -95,6 +102,12 @@ export async function scrapePost(
       downloads: downloadEpisodesMap[episode],
     }));
 
+    assertParseableHtml(html, targetPath, {
+      resultCount: title ? 1 : 0,
+      expectedMarkerSelector: '.nk-post-header',
+      $,
+    });
+
     return {
       title,
       japaneseTitle: japaneseTitle || undefined,
@@ -107,7 +120,7 @@ export async function scrapePost(
       downloads,
     };
   } catch (error) {
-    if (error instanceof NekopoiScrapeError) throw error;
+    if (error instanceof NekopoiScrapeError || error instanceof NekopoiParseError) throw error;
     throw new NekopoiScrapeError(
       `Failed to scrape post details for ${urlOrSlug}: ${getErrorMessage(error)}`,
       { cause: error, path: targetPath, statusCode: getAxiosStatus(error) }
