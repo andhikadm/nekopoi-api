@@ -7,6 +7,7 @@ import {
   stripSlugPrefix,
   resolveRequestPath,
   parseUploadedDate,
+  parseScore,
 } from '../../src/utils/parser.js';
 
 describe('parser helpers', () => {
@@ -63,5 +64,14 @@ describe('parser helpers', () => {
   it('parseUploadedDate extracts date patterns', () => {
     expect(parseUploadedDate('Posted on July 3, 2026')).toBe('July 3, 2026');
     expect(parseUploadedDate('3 July 2026')).toBe('3 July 2026');
+  });
+
+  it('parseScore extracts numeric scores', () => {
+    expect(parseScore('7.8')).toBe(7.8);
+    expect(parseScore('8,1')).toBe(8.1);
+    expect(parseScore('Score: 7.5/10')).toBe(7.5);
+    expect(parseScore('')).toBeNull();
+    expect(parseScore(undefined)).toBeNull();
+    expect(parseScore('N/A')).toBeNull();
   });
 });

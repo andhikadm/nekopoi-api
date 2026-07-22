@@ -10,7 +10,7 @@ import { scrapeSeriesDetails } from '../../src/scrapers/series.js';
 import { scrapeGenres } from '../../src/scrapers/genres.js';
 import { scrapeHentaiList } from '../../src/scrapers/hentai-list.js';
 import { NekopoiClient } from '../../src/client.js';
-import { NekopoiValidationError } from '../../src/errors.js';
+import { NekopoiParseError, NekopoiValidationError } from '../../src/errors.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(__dirname, '../fixtures');
@@ -38,32 +38,36 @@ function mockAxios(htmlByPath: Record<string, string> | string): AxiosInstance {
 }
 
 describe('scraper unit tests (fixtures)', () => {
-  it('scrapeHome parses cards and content types', async () => {
+  it('scrapeHome parses cards, content types, and pagination', async () => {
     const axios = mockAxios(loadFixture('home.html'));
-    const results = await scrapeHome(axios);
+    const result = await scrapeHome(axios);
 
-    expect(results).toHaveLength(3);
-    expect(results[0]).toMatchObject({
+    expect(result.page).toBe(1);
+    expect(result.hasNext).toBe(true);
+    expect(result.data).toHaveLength(3);
+    expect(result.data[0]).toMatchObject({
       title: '[3D] Sample Title Episode 1',
       url: 'https://nekopoi.care/sample-3d-episode/',
       thumbnail: 'https://cdn.example/thumb1.jpg',
       type: '3D Hentai',
       uploadedDate: '3 July 2026',
     });
-    expect(results[1].type).toBe('Live2D Hentai');
-    expect(results[2].type).toBe('Hentai');
-    expect(results[2].thumbnail).toBe('https://cdn.example/thumb3.jpg');
+    expect(result.data[1].type).toBe('Live2D Hentai');
+    expect(result.data[2].type).toBe('Hentai');
+    expect(result.data[2].thumbnail).toBe('https://cdn.example/thumb3.jpg');
   });
 
-  it('scrapePostList parses search/category items', async () => {
+  it('scrapePostList parses search/category items with pagination', async () => {
     const axios = mockAxios(loadFixture('search.html'));
-    const results = await scrapePostList(axios, '/search/shota/');
+    const result = await scrapePostList(axios, '/search/shota/', 1);
 
-    expect(results).toHaveLength(2);
-    expect(results[0].type).toBe('Cosplay');
-    expect(results[0].uploadedDate).toBe('10 June 2026');
-    expect(results[1].uploadedDate).toBe('');
-    expect(results[1].thumbnail).toBe('https://cdn.example/s2.jpg');
+    expect(result.page).toBe(1);
+    expect(result.hasNext).toBe(true);
+    expect(result.data).toHaveLength(2);
+    expect(result.data[0].type).toBe('Cosplay');
+    expect(result.data[0].uploadedDate).toBe('10 June 2026');
+    expect(result.data[1].uploadedDate).toBe('');
+    expect(result.data[1].thumbnail).toBe('https://cdn.example/s2.jpg');
   });
 
   it('scrapePost extracts metadata and downloads', async () => {
@@ -93,7 +97,7 @@ describe('scraper unit tests (fixtures)', () => {
     expect(series.japaneseTitle).toBe('フロントイノセント');
     expect(series.status).toBe('Completed');
     expect(series.totalEpisodes).toBe('2');
-    expect(series.score).toBe('7.8');
+    expect(series.score).toBe(7.8);
     expect(series.genres).toEqual(['Drama', 'Romance']);
     expect(series.thumbnail).toBe('https://cdn.example/poster.jpg');
     expect(series.episodes).toHaveLength(2);
@@ -121,20 +125,30 @@ describe('scraper unit tests (fixtures)', () => {
     expect(list).toHaveLength(2);
     expect(list[0].title).toBe('Sample Series Full');
     expect(list[0].status).toBe('Ongoing');
-    expect(list[0].score).toBe('8.1');
+    expect(list[0].score).toBe(8.1);
     expect(list[0].genres).toEqual(['Action', 'Drama']);
     expect(list[0].thumbnail).toBe('https://cdn.example/tt.jpg');
     expect(list[1].title).toBe('Another Series');
   });
 
-  it('scrapePostList returns empty array on 404', async () => {
+  it('scrapePostList returns empty paginated result on 404', async () => {
     const get = vi.fn(async () => {
       const err = new Error('Not Found') as Error & { response?: { status: number } };
       err.response = { status: 404 };
       throw err;
     });
     const axios = { get } as unknown as AxiosInstance;
-    await expect(scrapePostList(axios, '/missing/')).resolves.toEqual([]);
+    await expect(scrapePostList(axios, '/missing/', 3)).resolves.toEqual({
+      data: [],
+      page: 3,
+      hasNext: false,
+    });
+  });
+
+  it('throws NekopoiParseError on challenge HTML', async () => {
+    const axios = mockAxios(loadFixture('challenge.html'));
+    await expect(scrapeHome(axios)).rejects.toBeInstanceOf(NekopoiParseError);
+    await expect(scrapePost(axios, 'blocked-post')).rejects.toBeInstanceOf(NekopoiParseError);
   });
 });
 
@@ -154,7 +168,33 @@ describe('NekopoiClient validation', () => {
   });
 
   it('accepts options object constructor shape', () => {
-    expect(() => new NekopoiClient({ baseUrl: 'https://mirror.example', timeout: 5000 })).not.toThrow();
+    expect(
+      () =>
+        new NekopoiClient({
+          baseUrl: 'https://mirror.example',
+          timeout: 5000,
+          retries: 1,
+          minRequestIntervalMs: 100,
+          cacheTtlMs: 1000,
+        })
+    ).not.toThrow();
     expect(() => new NekopoiClient('https://mirror.example')).not.toThrow();
+  });
+
+  it('exposes axios instance and resolved options', () => {
+    const client = new NekopoiClient({
+      baseUrl: 'https://mirror.example',
+      timeout: 9000,
+      cacheTtlMs: 5000,
+      cacheMaxEntries: 10,
+    });
+    expect(client.getAxios()).toBeDefined();
+    expect(typeof client.getAxios().get).toBe('function');
+    expect(client.getOptions()).toMatchObject({
+      baseUrl: 'https://mirror.example',
+      timeout: 9000,
+      cacheTtlMs: 5000,
+      cacheMaxEntries: 10,
+    });
   });
 });

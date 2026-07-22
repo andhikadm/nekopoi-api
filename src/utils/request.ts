@@ -1,4 +1,5 @@
-import axios, { AxiosInstance } from 'axios';
+import type { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import axios from 'axios';
 import type { NekopoiClientOptions } from '../types/index.js';
 
 export const BASE_URL = 'https://nekopoi.care';
@@ -15,17 +16,57 @@ const DEFAULT_HEADERS: Record<string, string> = {
   'Upgrade-Insecure-Requests': '1',
 };
 
+type RetryConfig = InternalAxiosRequestConfig & {
+  __retryCount?: number;
+};
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryable(error: AxiosError): boolean {
+  if (!error.response) {
+    // network / timeout
+    return true;
+  }
+  const status = error.response.status;
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+function createRateLimiter(minIntervalMs: number): () => Promise<void> {
+  if (minIntervalMs <= 0) {
+    return async () => undefined;
+  }
+
+  let lastRequestAt = 0;
+  let chain: Promise<void> = Promise.resolve();
+
+  return () => {
+    chain = chain.then(async () => {
+      const now = Date.now();
+      const wait = Math.max(0, lastRequestAt + minIntervalMs - now);
+      if (wait > 0) await sleep(wait);
+      lastRequestAt = Date.now();
+    });
+    return chain;
+  };
+}
+
 export function createHttpClient(
   baseUrlOrOptions: string | NekopoiClientOptions = BASE_URL
 ): AxiosInstance {
   const options: NekopoiClientOptions =
     typeof baseUrlOrOptions === 'string'
       ? { baseUrl: baseUrlOrOptions }
-      : baseUrlOrOptions ?? {};
+      : (baseUrlOrOptions ?? {});
 
   const baseURL = options.baseUrl || BASE_URL;
+  const retries = options.retries ?? 2;
+  const retryDelayMs = options.retryDelayMs ?? 300;
+  const minRequestIntervalMs = options.minRequestIntervalMs ?? 0;
+  const waitForSlot = createRateLimiter(minRequestIntervalMs);
 
-  return axios.create({
+  const instance = axios.create({
     baseURL,
     timeout: options.timeout ?? 15_000,
     headers: {
@@ -34,4 +75,31 @@ export function createHttpClient(
       ...options.headers,
     },
   });
+
+  instance.interceptors.request.use(async (config) => {
+    await waitForSlot();
+    return config;
+  });
+
+  instance.interceptors.response.use(
+    (response) => response,
+    async (error: AxiosError) => {
+      const config = error.config as RetryConfig | undefined;
+      if (!config || retries <= 0 || !isRetryable(error)) {
+        return Promise.reject(error);
+      }
+
+      const retryCount = config.__retryCount ?? 0;
+      if (retryCount >= retries) {
+        return Promise.reject(error);
+      }
+
+      config.__retryCount = retryCount + 1;
+      const delay = retryDelayMs * 2 ** retryCount;
+      await sleep(delay);
+      return instance.request(config);
+    }
+  );
+
+  return instance;
 }

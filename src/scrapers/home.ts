@@ -1,18 +1,22 @@
-import { AxiosInstance } from 'axios';
+import type { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
-import { LatestRelease } from '../types/index.js';
+import type { LatestRelease, PaginatedResult } from '../types/index.js';
 import { cleanText, detectContentType, extractBgImage, buildPagedPath } from '../utils/parser.js';
-import { NekopoiScrapeError, getAxiosStatus, getErrorMessage } from '../errors.js';
+import { NekopoiParseError, NekopoiScrapeError, getAxiosStatus, getErrorMessage } from '../errors.js';
+import { assertParseableHtml, detectHasNextPage } from '../utils/html.js';
+import { toPaginatedResult } from '../utils/pagination.js';
 
 export async function scrapeHome(
   axiosInstance: AxiosInstance,
   page?: number
-): Promise<LatestRelease[]> {
+): Promise<PaginatedResult<LatestRelease>> {
+  const currentPage = page && page > 0 ? page : 1;
   const targetPath = buildPagedPath('/', page);
 
   try {
     const { data } = await axiosInstance.get(targetPath);
-    const $ = cheerio.load(data);
+    const html = typeof data === 'string' ? data : String(data);
+    const $ = cheerio.load(html);
     const results: LatestRelease[] = [];
 
     $('#nk-episode-grid .nk-post-card').each((_, element) => {
@@ -34,9 +38,16 @@ export async function scrapeHome(
       }
     });
 
-    return results;
+    assertParseableHtml(html, targetPath, {
+      resultCount: results.length,
+      expectedMarkerSelector: '#nk-episode-grid',
+      $,
+      allowEmpty: currentPage > 1,
+    });
+
+    return toPaginatedResult(results, currentPage, detectHasNextPage($, currentPage));
   } catch (error) {
-    if (error instanceof NekopoiScrapeError) throw error;
+    if (error instanceof NekopoiScrapeError || error instanceof NekopoiParseError) throw error;
     throw new NekopoiScrapeError(`Failed to scrape homepage: ${getErrorMessage(error)}`, {
       cause: error,
       path: targetPath,

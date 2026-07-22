@@ -5,6 +5,22 @@ export function cleanText(text: string | null | undefined): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Parse a score string (e.g. "7.8", "8,1", "Score: 7.5/10") into a number.
+ * Returns null when no numeric value can be extracted.
+ */
+export function parseScore(value: string | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  const cleaned = cleanText(String(value));
+  if (!cleaned) return null;
+
+  const match = cleaned.replace(',', '.').match(/(\d+(?:\.\d+)?)/);
+  if (!match) return null;
+
+  const num = Number(match[1]);
+  return Number.isFinite(num) ? num : null;
+}
+
 export function parseUploadedDate(text: string): string {
   const cleaned = cleanText(text);
   const match =

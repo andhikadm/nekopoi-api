@@ -4,5 +4,6 @@ export {
   NekopoiError,
   NekopoiScrapeError,
   NekopoiValidationError,
+  NekopoiParseError,
 } from './errors.js';
 export * from './types/index.js';

@@ -30,6 +30,17 @@ export class NekopoiScrapeError extends NekopoiError {
   }
 }
 
+/** HTML fetched successfully but could not be parsed (selectors missing, challenge page, etc.). */
+export class NekopoiParseError extends NekopoiError {
+  constructor(
+    message: string,
+    options?: { cause?: unknown; path?: string; statusCode?: number }
+  ) {
+    super(message, options);
+    this.name = 'NekopoiParseError';
+  }
+}
+
 export function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);

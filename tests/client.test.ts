@@ -4,21 +4,22 @@ import { NekopoiClient } from '../src/client.js';
 /**
  * Live integration tests against the real site.
  * Run with: npm run test:integration
- * Skipped in default unit runs if RUN_INTEGRATION is not set — still runnable via vitest path.
  */
 describe('NekopoiClient Integration Tests', () => {
   let client: NekopoiClient;
 
   beforeAll(() => {
-    client = new NekopoiClient();
+    client = new NekopoiClient({ retries: 2, minRequestIntervalMs: 250 });
   });
 
   it('should fetch latest releases from home page', async () => {
     const latest = await client.getLatest();
-    expect(latest).toBeInstanceOf(Array);
-    expect(latest.length).toBeGreaterThan(0);
+    expect(latest.data).toBeInstanceOf(Array);
+    expect(latest.data.length).toBeGreaterThan(0);
+    expect(latest.page).toBe(1);
+    expect(typeof latest.hasNext).toBe('boolean');
 
-    const firstItem = latest[0];
+    const firstItem = latest.data[0];
     expect(firstItem).toHaveProperty('title');
     expect(firstItem).toHaveProperty('url');
     expect(firstItem).toHaveProperty('thumbnail');
@@ -29,10 +30,11 @@ describe('NekopoiClient Integration Tests', () => {
 
   it('should search for query "shota"', async () => {
     const results = await client.search('shota');
-    expect(results).toBeInstanceOf(Array);
-    expect(results.length).toBeGreaterThan(0);
+    expect(results.data).toBeInstanceOf(Array);
+    expect(results.data.length).toBeGreaterThan(0);
+    expect(results.page).toBe(1);
 
-    const firstItem = results[0];
+    const firstItem = results.data[0];
     expect(firstItem).toHaveProperty('title');
     expect(firstItem).toHaveProperty('url');
     expect(firstItem).toHaveProperty('thumbnail');
@@ -41,7 +43,7 @@ describe('NekopoiClient Integration Tests', () => {
 
   it('should fetch details of a post', async () => {
     const latest = await client.getLatest();
-    const firstUrl = latest[0].url;
+    const firstUrl = latest.data[0].url;
 
     const details = await client.getPostDetails(firstUrl);
     expect(details).toHaveProperty('title');
@@ -54,19 +56,19 @@ describe('NekopoiClient Integration Tests', () => {
 
   it('should fetch posts by category', async () => {
     const results = await client.getByCategory('3d-hentai');
-    expect(results).toBeInstanceOf(Array);
-    expect(results.length).toBeGreaterThan(0);
-    expect(results[0]).toHaveProperty('title');
+    expect(results.data).toBeInstanceOf(Array);
+    expect(results.data.length).toBeGreaterThan(0);
+    expect(results.data[0]).toHaveProperty('title');
   }, 20000);
 
   it('should fetch posts using category shortcut methods', async () => {
     const hentai3d = await client.get3DHentai();
-    expect(hentai3d).toBeInstanceOf(Array);
-    expect(hentai3d.length).toBeGreaterThan(0);
+    expect(hentai3d.data).toBeInstanceOf(Array);
+    expect(hentai3d.data.length).toBeGreaterThan(0);
 
     const jav = await client.getJAV();
-    expect(jav).toBeInstanceOf(Array);
-    expect(jav.length).toBeGreaterThan(0);
+    expect(jav.data).toBeInstanceOf(Array);
+    expect(jav.data.length).toBeGreaterThan(0);
   }, 30000);
 
   it('should fetch genre list and get posts by a genre', async () => {
@@ -78,8 +80,8 @@ describe('NekopoiClient Integration Tests', () => {
 
     const firstGenreSlug = genres[0].slug;
     const results = await client.getByGenre(firstGenreSlug);
-    expect(results).toBeInstanceOf(Array);
-    expect(results.length).toBeGreaterThan(0);
+    expect(results.data).toBeInstanceOf(Array);
+    expect(results.data.length).toBeGreaterThan(0);
   }, 30000);
 
   it('should fetch details of a series', async () => {

@@ -1,15 +1,22 @@
-import { AxiosInstance } from 'axios';
+import type { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
-import { AnimeSeries } from '../types/index.js';
-import { cleanText } from '../utils/parser.js';
-import { NekopoiScrapeError, getAxiosStatus, getErrorMessage } from '../errors.js';
+import type { AnimeSeries } from '../types/index.js';
+import { cleanText, parseScore } from '../utils/parser.js';
+import {
+  NekopoiParseError,
+  NekopoiScrapeError,
+  getAxiosStatus,
+  getErrorMessage,
+} from '../errors.js';
+import { assertParseableHtml } from '../utils/html.js';
 
 export async function scrapeHentaiList(axiosInstance: AxiosInstance): Promise<AnimeSeries[]> {
   const path = '/hentai-list/';
 
   try {
     const { data } = await axiosInstance.get(path);
-    const $ = cheerio.load(data);
+    const html = typeof data === 'string' ? data : String(data);
+    const $ = cheerio.load(html);
     const results: AnimeSeries[] = [];
 
     $('.nk-az-item a.nk-series-link').each((_, element) => {
@@ -25,7 +32,7 @@ export async function scrapeHentaiList(axiosInstance: AxiosInstance): Promise<An
       let status: string | undefined;
       let genres: string[] = [];
       let duration: string | undefined;
-      let score: string | undefined;
+      let score: number | null | undefined;
 
       if (tooltipHtml) {
         const $$ = cheerio.load(tooltipHtml);
@@ -53,7 +60,7 @@ export async function scrapeHentaiList(axiosInstance: AxiosInstance): Promise<An
           } else if (text.includes('Durasi')) {
             duration = cleanText(text.replace('Durasi:', ''));
           } else if (text.includes('Skor') || text.includes('Score')) {
-            score = cleanText(text.replace(/Skor:|Score:/, ''));
+            score = parseScore(text.replace(/Skor:|Score:/, ''));
           }
         });
       }
@@ -74,9 +81,15 @@ export async function scrapeHentaiList(axiosInstance: AxiosInstance): Promise<An
       }
     });
 
+    assertParseableHtml(html, path, {
+      resultCount: results.length,
+      expectedMarkerSelector: '.nk-az-item',
+      $,
+    });
+
     return results;
   } catch (error) {
-    if (error instanceof NekopoiScrapeError) throw error;
+    if (error instanceof NekopoiScrapeError || error instanceof NekopoiParseError) throw error;
     throw new NekopoiScrapeError(`Failed to scrape hentai list: ${getErrorMessage(error)}`, {
       cause: error,
       path,

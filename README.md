@@ -33,7 +33,11 @@ API Wrapper tidak resmi (Unofficial API Wrapper) untuk website **nekopoi.care** 
 - 📚 **Series Details**: Mengambil informasi rinci suatu serial hentai (Poster, Sinopsis lengkap, Skor, Status tayang, beserta daftar episode yang tersedia).
 - 📚 **Hentai List A-Z**: Mengambil daftar lengkap hentai terindeks berserta status dan skor dari index list A-Z.
 - ⚙️ **Custom Base URL**: Mendukung custom base URL untuk mem-bypass pemblokiran menggunakan situs cermin (mirror site).
-- 🛡️ **Input validation & typed errors**: Validasi slug/query/page dan error class khusus (`NekopoiValidationError`, `NekopoiScrapeError`).
+- 🛡️ **Input validation & typed errors**: Validasi slug/query/page dan error class khusus (`NekopoiValidationError`, `NekopoiScrapeError`, `NekopoiParseError`).
+- 🔁 **Retry & rate limit**: Exponential backoff untuk error sementara, plus interval request opsional.
+- 📄 **Pagination metadata**: Endpoint list mengembalikan `{ data, page, hasNext }`.
+- 💾 **Optional cache**: Cache in-memory berbasis TTL (`cacheTtlMs`) untuk mengurangi request berulang.
+- 🔌 **getAxios() / getOptions()**: Akses instance Axios dan snapshot konfigurasi client.
 
 ---
 
@@ -67,7 +71,16 @@ const client = new NekopoiClient();
 const clientWithOptions = new NekopoiClient({
   baseUrl: 'https://mirror-nekopoi.net',
   timeout: 30_000,
+  retries: 2,
+  retryDelayMs: 300,
+  minRequestIntervalMs: 250,
+  cacheTtlMs: 60_000, // cache hasil sukses selama 60 detik
 });
+
+// Akses axios / config
+clientWithOptions.getAxios().interceptors.request.use((cfg) => cfg);
+console.log(clientWithOptions.getOptions());
+clientWithOptions.clearCache();
 ```
 
 ---
@@ -79,9 +92,10 @@ const clientWithOptions = new NekopoiClient({
 #### `getLatest(page?: number)`
 Mengambil daftar rilis terbaru (episode video terbaru) dari halaman beranda nekopoi.care.
 - **Parameter**: `page` (opsional) - Nomor halaman untuk pagination (integer ≥ 1).
-- **Return**: `Promise<LatestRelease[]>`
+- **Return**: `Promise<PaginatedResult<LatestRelease>>`
 ```typescript
 const latest = await client.getLatest(); // Halaman 1
+console.log(latest.data, latest.page, latest.hasNext);
 const latestPage2 = await client.getLatest(2); // Halaman 2
 ```
 
@@ -90,9 +104,10 @@ Melakukan pencarian anime/hentai berdasarkan kata kunci.
 - **Parameter**:
   - `query` (wajib) - Kata kunci pencarian (misal: `"shota"`, `"milf"`).
   - `page` (opsional) - Nomor halaman untuk pagination.
-- **Return**: `Promise<SearchResult[]>`
+- **Return**: `Promise<PaginatedResult<SearchResult>>`
 ```typescript
 const results = await client.search('shota');
+console.log(results.data.length, results.hasNext);
 const resultsPage2 = await client.search('shota', 2);
 ```
 
@@ -105,9 +120,10 @@ Mengambil postingan berdasarkan nama kategori tertentu.
 - **Parameter**:
   - `category` (wajib) - Nama/slug kategori (contoh: `"hentai"`, `"3d-hentai"`, `"jav"`, `"2d-animation"`, `"jav-cosplay"`).
   - `page` (opsional) - Nomor halaman untuk pagination.
-- **Return**: `Promise<SearchResult[]>`
+- **Return**: `Promise<PaginatedResult<SearchResult>>`
 ```typescript
 const posts = await client.getByCategory('3d-hentai', 1);
+console.log(posts.data, posts.hasNext);
 ```
 
 #### Pintasan Kategori (Navbar Shortcuts)
@@ -146,9 +162,10 @@ Mengambil postingan rilis terbaru berdasarkan genre tertentu.
 - **Parameter**:
   - `genre` (wajib) - Slug genre (contoh: `"action"`, `"big-oppai"`, `"creampie"`).
   - `page` (opsional) - Nomor halaman untuk pagination.
-- **Return**: `Promise<SearchResult[]>`
+- **Return**: `Promise<PaginatedResult<SearchResult>>`
 ```typescript
 const actionPosts = await client.getByGenre('action');
+console.log(actionPosts.data, actionPosts.page, actionPosts.hasNext);
 ```
 
 ---
@@ -250,7 +267,7 @@ export interface AnimeSeries {
   status?: SeriesStatus;
   genres?: string[];
   duration?: string;
-  score?: string;
+  score?: number | null;
 }
 
 export interface GenreItem {
@@ -279,14 +296,35 @@ export interface SeriesDetail {
   producer?: string;
   genres: string[];
   duration?: string;
-  score?: string;
+  score?: number | null;
   episodes: EpisodeItem[];
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  page: number;
+  hasNext: boolean;
+}
+
+export interface NekopoiClientConfig {
+  baseUrl: string;
+  timeout: number;
+  retries: number;
+  retryDelayMs: number;
+  minRequestIntervalMs: number;
+  cacheTtlMs: number;
+  cacheMaxEntries: number;
 }
 
 export interface NekopoiClientOptions {
   baseUrl?: string;
   timeout?: number;
   headers?: Record<string, string>;
+  retries?: number;
+  retryDelayMs?: number;
+  minRequestIntervalMs?: number;
+  cacheTtlMs?: number;
+  cacheMaxEntries?: number;
 }
 ```
 
@@ -299,6 +337,7 @@ import {
   NekopoiClient,
   NekopoiValidationError,
   NekopoiScrapeError,
+  NekopoiParseError,
 } from 'nekopoi-api';
 
 try {
@@ -306,8 +345,10 @@ try {
 } catch (err) {
   if (err instanceof NekopoiValidationError) {
     // Input tidak valid (slug, page, query, URL)
+  } else if (err instanceof NekopoiParseError) {
+    // HTML challenge / struktur halaman tidak dikenali
   } else if (err instanceof NekopoiScrapeError) {
-    // Gagal fetch/parse — cek err.path, err.statusCode, err.cause
+    // Gagal fetch/jaringan — cek err.path, err.statusCode, err.cause
   }
 }
 ```
@@ -322,7 +363,12 @@ Jika domain utama `https://nekopoi.care` diblokir oleh ISP/Internet Sehat di wil
 ```typescript
 const client = new NekopoiClient('https://mirror-nekopoi.net');
 // atau
-const client2 = new NekopoiClient({ baseUrl: 'https://mirror-nekopoi.net', timeout: 30_000 });
+const client2 = new NekopoiClient({
+  baseUrl: 'https://mirror-nekopoi.net',
+  timeout: 30_000,
+  retries: 3,
+  minRequestIntervalMs: 500,
+});
 ```
 
 ### Penanganan Tautan Unduhan (ouo.io)
@@ -348,15 +394,20 @@ Jika Anda ingin berkontribusi atau melakukan modifikasi kode secara lokal:
    ```bash
    npm run demo
    ```
-4. **Jalankan Unit Test** (offline, HTML fixtures):
+4. **Lint & Format**:
+   ```bash
+   npm run lint
+   npm run format
+   ```
+5. **Jalankan Unit Test** (offline, HTML fixtures):
    ```bash
    npm run test:unit
    ```
-5. **Jalankan Integration Test** (live network):
+6. **Jalankan Integration Test** (live network):
    ```bash
    npm run test:integration
    ```
-6. **Kompilasi TypeScript**:
+7. **Kompilasi TypeScript**:
    ```bash
    npm run build
    ```
