@@ -15,6 +15,7 @@ API Wrapper tidak resmi (Unofficial API Wrapper) untuk website **nekopoi.care** 
   - [4. Detail Konten (Episode & Seri)](#4-detail-konten-episode--seri)
   - [5. Indeks Lengkap A-Z](#5-indeks-lengkap-a-z)
 - [Definisi Tipe Data (TypeScript Interfaces)](#definisi-tipe-data-typescript-interfaces)
+- [Error Handling](#error-handling)
 - [Tips & Penggunaan Lanjutan](#tips--penggunaan-lanjutan)
   - [Menggunakan Mirror Site](#menggunakan-mirror-site)
   - [Penanganan Tautan Unduhan (ouo.io)](#penanganan-tautan-unduhan-ouoio)
@@ -32,23 +33,24 @@ API Wrapper tidak resmi (Unofficial API Wrapper) untuk website **nekopoi.care** 
 - 📚 **Series Details**: Mengambil informasi rinci suatu serial hentai (Poster, Sinopsis lengkap, Skor, Status tayang, beserta daftar episode yang tersedia).
 - 📚 **Hentai List A-Z**: Mengambil daftar lengkap hentai terindeks berserta status dan skor dari index list A-Z.
 - ⚙️ **Custom Base URL**: Mendukung custom base URL untuk mem-bypass pemblokiran menggunakan situs cermin (mirror site).
+- 🛡️ **Input validation & typed errors**: Validasi slug/query/page dan error class khusus (`NekopoiValidationError`, `NekopoiScrapeError`).
 
 ---
 
 ## Instalasi
 
-Gunakan package manager pilihan Anda untuk memasang `nekopoi-api` beserta dependensinya:
-
 ```bash
 # Menggunakan NPM
-npm install axios cheerio nekopoi-api
+npm install nekopoi-api
 
 # Menggunakan Yarn
-yarn add axios cheerio nekopoi-api
+yarn add nekopoi-api
 
 # Menggunakan PNPM
-pnpm add axios cheerio nekopoi-api
+pnpm add nekopoi-api
 ```
+
+Dependensi runtime (`axios`, `cheerio`) sudah termasuk; tidak perlu diinstal terpisah.
 
 ---
 
@@ -60,6 +62,12 @@ Impor dan buat instance dari `NekopoiClient`. Secara default client akan terhubu
 import { NekopoiClient } from 'nekopoi-api';
 
 const client = new NekopoiClient();
+
+// Atau dengan opsi
+const clientWithOptions = new NekopoiClient({
+  baseUrl: 'https://mirror-nekopoi.net',
+  timeout: 30_000,
+});
 ```
 
 ---
@@ -70,7 +78,7 @@ const client = new NekopoiClient();
 
 #### `getLatest(page?: number)`
 Mengambil daftar rilis terbaru (episode video terbaru) dari halaman beranda nekopoi.care.
-- **Parameter**: `page` (opsional) - Nomor halaman untuk pagination.
+- **Parameter**: `page` (opsional) - Nomor halaman untuk pagination (integer ≥ 1).
 - **Return**: `Promise<LatestRelease[]>`
 ```typescript
 const latest = await client.getLatest(); // Halaman 1
@@ -79,7 +87,7 @@ const latestPage2 = await client.getLatest(2); // Halaman 2
 
 #### `search(query: string, page?: number)`
 Melakukan pencarian anime/hentai berdasarkan kata kunci.
-- **Parameter**: 
+- **Parameter**:
   - `query` (wajib) - Kata kunci pencarian (misal: `"shota"`, `"milf"`).
   - `page` (opsional) - Nomor halaman untuk pagination.
 - **Return**: `Promise<SearchResult[]>`
@@ -183,34 +191,40 @@ const fullList = await client.getHentaiList();
 Pustaka ini didesain penuh dengan TypeScript untuk memastikan *type safety*:
 
 ```typescript
+export type ContentType =
+  | 'Hentai'
+  | '3D Hentai'
+  | 'Live2D Hentai'
+  | 'Cosplay'
+  | 'CAV'
+  | 'JAV'
+  | string;
+
+export type SeriesStatus = 'Ongoing' | 'Completed' | string;
+
 export interface LatestRelease {
   title: string;
   url: string;
   thumbnail: string;
-  type: string;        // "Hentai" | "3D Hentai" | "Cosplay" | "CAV"
+  type: ContentType;
   uploadedDate: string;
 }
 
-export interface SearchResult {
-  title: string;
-  url: string;
-  thumbnail: string;
-  type: string;
-  uploadedDate: string;
-}
+/** Search/category/genre list items share the same shape as latest releases. */
+export type SearchResult = LatestRelease;
 
 export interface DownloadLink {
-  host: string;        // "KrakenFiles" | "Mp4Upload" | "Pixeldrain" | "Mirror" | dll
-  url: string;         // Link yang biasanya berformat shortener ouo.io
+  host: string;
+  url: string;
 }
 
 export interface DownloadResolution {
-  resolution: string;  // "360p" | "480p" | "720p" | "1080p"
+  resolution: string;
   links: DownloadLink[];
 }
 
 export interface EpisodeDownload {
-  episode: string;     // Nama/Nomor Episode (misal: "Episode 1" atau "Full Episode")
+  episode: string;
   downloads: DownloadResolution[];
 }
 
@@ -232,8 +246,8 @@ export interface AnimeSeries {
   thumbnail?: string;
   japaneseTitle?: string;
   producer?: string;
-  type?: string;
-  status?: string;     // "Ongoing" | "Completed"
+  type?: ContentType;
+  status?: SeriesStatus;
   genres?: string[];
   duration?: string;
   score?: string;
@@ -258,8 +272,8 @@ export interface SeriesDetail {
   japaneseTitle?: string;
   thumbnail: string;
   synopsis: string;
-  type: string;
-  status: string;
+  type: ContentType;
+  status: SeriesStatus;
   totalEpisodes: string;
   releaseDate?: string;
   producer?: string;
@@ -267,6 +281,34 @@ export interface SeriesDetail {
   duration?: string;
   score?: string;
   episodes: EpisodeItem[];
+}
+
+export interface NekopoiClientOptions {
+  baseUrl?: string;
+  timeout?: number;
+  headers?: Record<string, string>;
+}
+```
+
+---
+
+## Error Handling
+
+```typescript
+import {
+  NekopoiClient,
+  NekopoiValidationError,
+  NekopoiScrapeError,
+} from 'nekopoi-api';
+
+try {
+  await client.getByCategory('../admin');
+} catch (err) {
+  if (err instanceof NekopoiValidationError) {
+    // Input tidak valid (slug, page, query, URL)
+  } else if (err instanceof NekopoiScrapeError) {
+    // Gagal fetch/parse — cek err.path, err.statusCode, err.cause
+  }
 }
 ```
 
@@ -279,6 +321,8 @@ Jika domain utama `https://nekopoi.care` diblokir oleh ISP/Internet Sehat di wil
 
 ```typescript
 const client = new NekopoiClient('https://mirror-nekopoi.net');
+// atau
+const client2 = new NekopoiClient({ baseUrl: 'https://mirror-nekopoi.net', timeout: 30_000 });
 ```
 
 ### Penanganan Tautan Unduhan (ouo.io)
@@ -292,7 +336,7 @@ Jika Anda ingin berkontribusi atau melakukan modifikasi kode secara lokal:
 
 1. **Clone Repositori**:
    ```bash
-   git clone https://github.com/username/nekopoi-api.git
+   git clone https://github.com/andhikadm/nekopoi-api.git
    cd nekopoi-api
    ```
 2. **Install Dependensi**:
@@ -304,13 +348,15 @@ Jika Anda ingin berkontribusi atau melakukan modifikasi kode secara lokal:
    ```bash
    npm run demo
    ```
-4. **Jalankan Unit Test**:
-   Tes integrasi ditulis menggunakan `Vitest` untuk memastikan scraper bekerja dengan struktur situs web terbaru:
+4. **Jalankan Unit Test** (offline, HTML fixtures):
    ```bash
-   npm run test
+   npm run test:unit
    ```
-5. **Kompilasi TypeScript**:
-   Untuk melakukan build proyek ke JavaScript (dist):
+5. **Jalankan Integration Test** (live network):
+   ```bash
+   npm run test:integration
+   ```
+6. **Kompilasi TypeScript**:
    ```bash
    npm run build
    ```

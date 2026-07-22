@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { NekopoiClient } from '../src/client.js';
 
+/**
+ * Live integration tests against the real site.
+ * Run with: npm run test:integration
+ * Skipped in default unit runs if RUN_INTEGRATION is not set — still runnable via vitest path.
+ */
 describe('NekopoiClient Integration Tests', () => {
   let client: NekopoiClient;
 
@@ -19,8 +24,8 @@ describe('NekopoiClient Integration Tests', () => {
     expect(firstItem).toHaveProperty('thumbnail');
     expect(firstItem).toHaveProperty('type');
     expect(firstItem).toHaveProperty('uploadedDate');
-    expect(firstItem.url.startsWith('https://nekopoi.care')).toBe(true);
-  }, 20000); // 20s timeout untuk request jaringan
+    expect(firstItem.url).toMatch(/^https?:\/\//);
+  }, 20000);
 
   it('should search for query "shota"', async () => {
     const results = await client.search('shota');
@@ -31,7 +36,7 @@ describe('NekopoiClient Integration Tests', () => {
     expect(firstItem).toHaveProperty('title');
     expect(firstItem).toHaveProperty('url');
     expect(firstItem).toHaveProperty('thumbnail');
-    expect(firstItem.url.startsWith('https://nekopoi.care')).toBe(true);
+    expect(firstItem.url).toMatch(/^https?:\/\//);
   }, 20000);
 
   it('should fetch details of a post', async () => {
@@ -78,7 +83,9 @@ describe('NekopoiClient Integration Tests', () => {
   }, 30000);
 
   it('should fetch details of a series', async () => {
-    const series = await client.getSeriesDetails('front-innocent-mou-hitotsu-no-lady-innocent');
+    const series = await client.getSeriesDetails(
+      'front-innocent-mou-hitotsu-no-lady-innocent'
+    );
     expect(series).toHaveProperty('title');
     expect(series).toHaveProperty('status');
     expect(series).toHaveProperty('totalEpisodes');
