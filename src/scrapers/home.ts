@@ -2,7 +2,12 @@ import type { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
 import type { LatestRelease, PaginatedResult } from '../types/index.js';
 import { cleanText, detectContentType, extractBgImage, buildPagedPath } from '../utils/parser.js';
-import { NekopoiParseError, NekopoiScrapeError, getAxiosStatus, getErrorMessage } from '../errors.js';
+import {
+  NekopoiParseError,
+  NekopoiScrapeError,
+  getAxiosStatus,
+  getErrorMessage,
+} from '../errors.js';
 import { assertParseableHtml, detectHasNextPage } from '../utils/html.js';
 import { toPaginatedResult } from '../utils/pagination.js';
 

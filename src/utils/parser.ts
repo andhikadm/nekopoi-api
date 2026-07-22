@@ -24,8 +24,7 @@ export function parseScore(value: string | null | undefined): number | null {
 export function parseUploadedDate(text: string): string {
   const cleaned = cleanText(text);
   const match =
-    cleaned.match(/Posted (?:by .+? )?on (.+)/i) ||
-    cleaned.match(/(\d+\s+\w+\s+\d{4})/);
+    cleaned.match(/Posted (?:by .+? )?on (.+)/i) || cleaned.match(/(\d+\s+\w+\s+\d{4})/);
   return match ? match[1] : cleaned;
 }
 

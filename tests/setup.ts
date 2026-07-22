@@ -23,11 +23,7 @@ if (typeof g.File === 'undefined') {
     readonly lastModified: number;
     readonly webkitRelativePath = '';
 
-    constructor(
-      fileBits: BlobPart[],
-      fileName: string,
-      options: FilePropertyBag = {}
-    ) {
+    constructor(fileBits: BlobPart[], fileName: string, options: FilePropertyBag = {}) {
       super(fileBits, options);
       this.name = String(fileName ?? '');
       this.lastModified =

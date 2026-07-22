@@ -74,10 +74,7 @@ export function assertParseableHtml(
   }
 ): void {
   if (isChallengeHtml(html)) {
-    throw new NekopoiParseError(
-      `Blocked by anti-bot challenge while fetching ${path}`,
-      { path }
-    );
+    throw new NekopoiParseError(`Blocked by anti-bot challenge while fetching ${path}`, { path });
   }
 
   if (options.allowEmpty || options.resultCount > 0) return;

@@ -17,13 +17,9 @@ import type {
   NekopoiClientOptions,
   NekopoiClientConfig,
   PaginatedResult,
+  NekopoiCategory,
 } from './types/index.js';
-import {
-  assertPage,
-  assertSearchQuery,
-  assertSlug,
-  assertUrlOrSlug,
-} from './utils/validate.js';
+import { assertPage, assertSearchQuery, assertSlug, assertUrlOrSlug } from './utils/validate.js';
 import { buildPagedPath, stripSlugPrefix } from './utils/parser.js';
 import { TtlCache, cacheKey } from './utils/cache.js';
 
@@ -66,14 +62,38 @@ function resolveOptions(
   };
 }
 
+/**
+ * Unofficial typed client for scraping structured data from nekopoi.care (or a mirror).
+ *
+ * @example
+ * ```ts
+ * const client = new NekopoiClient();
+ * const latest = await client.getLatest();
+ * for (const item of latest.data) {
+ *   console.log(item.title, item.url);
+ * }
+ * if (latest.hasNext) {
+ *   const page2 = await client.getLatest(latest.page + 1);
+ * }
+ * ```
+ */
 export class NekopoiClient {
   private readonly axiosInstance: AxiosInstance;
   private readonly cache: TtlCache;
   private readonly config: NekopoiClientConfig;
 
   /**
-   * @param baseUrlOrOptions Custom base URL string, or full client options.
-   *                         Defaults to https://nekopoi.care
+   * Create a client.
+   *
+   * @param baseUrlOrOptions - Mirror base URL string, or full {@link NekopoiClientOptions}.
+   *   Defaults to `https://nekopoi.care`.
+   *
+   * @example
+   * ```ts
+   * new NekopoiClient();
+   * new NekopoiClient('https://mirror.example');
+   * new NekopoiClient({ baseUrl: 'https://mirror.example', cacheTtlMs: 60_000 });
+   * ```
    */
   constructor(baseUrlOrOptions?: string | NekopoiClientOptions) {
     const resolved = resolveOptions(baseUrlOrOptions);
@@ -101,7 +121,10 @@ export class NekopoiClient {
     this.cache = new TtlCache(resolved.cacheTtlMs, resolved.cacheMaxEntries);
   }
 
-  /** Underlying Axios instance (for custom interceptors / debugging). */
+  /**
+   * Underlying Axios instance for custom interceptors, proxies, or debugging.
+   * Prefer client methods for scraping; use this only when you need low-level control.
+   */
   getAxios(): AxiosInstance {
     return this.axiosInstance;
   }
@@ -111,7 +134,7 @@ export class NekopoiClient {
     return { ...this.config };
   }
 
-  /** Clear the in-memory response cache. */
+  /** Clear the in-memory response cache (no-op when caching is disabled). */
   clearCache(): void {
     this.cache.clear();
   }
@@ -126,13 +149,28 @@ export class NekopoiClient {
     return value;
   }
 
-  /** Latest episode releases from the homepage. */
+  /**
+   * Latest episode releases from the homepage.
+   *
+   * @param page - 1-based page index (default `1`).
+   * @returns Paginated cards with title, url, thumbnail, type, and uploaded date.
+   * @throws {NekopoiValidationError} When `page` is not a positive integer.
+   * @throws {NekopoiParseError} When the HTML is a bot challenge or unexpected structure.
+   * @throws {NekopoiScrapeError} On network / HTTP failures after retries.
+   */
   async getLatest(page?: number): Promise<PaginatedResult<LatestRelease>> {
     assertPage(page);
     return this.cached(['getLatest', page ?? 1], () => scrapeHome(this.axiosInstance, page));
   }
 
-  /** Search posts by keyword. */
+  /**
+   * Search posts by keyword.
+   *
+   * @param query - Non-empty search string.
+   * @param page - 1-based page index (default `1`).
+   * @returns Paginated search hits.
+   * @throws {NekopoiValidationError} When `query` is empty/too long or `page` is invalid.
+   */
   async search(query: string, page?: number): Promise<PaginatedResult<SearchResult>> {
     assertSearchQuery(query);
     assertPage(page);
@@ -140,8 +178,19 @@ export class NekopoiClient {
     return this.cached(['search', q, page ?? 1], () => scrapeSearch(this.axiosInstance, q, page));
   }
 
-  /** Posts under a category slug (e.g. "3d-hentai", "jav"). */
-  async getByCategory(category: string, page?: number): Promise<PaginatedResult<SearchResult>> {
+  /**
+   * Posts under a category slug.
+   *
+   * Known slugs: {@link NEKOPOI_CATEGORIES} (`hentai`, `2d-animation`, `3d-hentai`, `jav`, `jav-cosplay`).
+   * Custom mirror slugs are accepted as plain strings.
+   *
+   * @param category - Category slug (with or without a `category/` prefix).
+   * @param page - 1-based page index (default `1`).
+   */
+  async getByCategory(
+    category: NekopoiCategory,
+    page?: number
+  ): Promise<PaginatedResult<SearchResult>> {
     assertPage(page);
     const cleanCat = assertSlug(stripSlugPrefix(category, 'category'), 'category');
     const path = buildPagedPath(`/category/${cleanCat}`, page);
@@ -150,27 +199,38 @@ export class NekopoiClient {
     );
   }
 
+  /** Shortcut for {@link getByCategory} with slug `hentai`. */
   async getHentai(page?: number): Promise<PaginatedResult<SearchResult>> {
     return this.getByCategory('hentai', page);
   }
 
+  /** Shortcut for {@link getByCategory} with slug `2d-animation`. */
   async get2DAnimation(page?: number): Promise<PaginatedResult<SearchResult>> {
     return this.getByCategory('2d-animation', page);
   }
 
+  /** Shortcut for {@link getByCategory} with slug `3d-hentai`. */
   async get3DHentai(page?: number): Promise<PaginatedResult<SearchResult>> {
     return this.getByCategory('3d-hentai', page);
   }
 
+  /** Shortcut for {@link getByCategory} with slug `jav`. */
   async getJAV(page?: number): Promise<PaginatedResult<SearchResult>> {
     return this.getByCategory('jav', page);
   }
 
+  /** Shortcut for {@link getByCategory} with slug `jav-cosplay`. */
   async getJAVCosplay(page?: number): Promise<PaginatedResult<SearchResult>> {
     return this.getByCategory('jav-cosplay', page);
   }
 
-  /** Posts under a genre slug (e.g. "action", "big-oppai"). */
+  /**
+   * Posts under a genre slug (e.g. `action`, `big-oppai`).
+   * Prefer {@link getGenres} first to discover valid slugs.
+   *
+   * @param genre - Genre slug (with or without a `genres/` prefix).
+   * @param page - 1-based page index (default `1`).
+   */
   async getByGenre(genre: string, page?: number): Promise<PaginatedResult<SearchResult>> {
     assertPage(page);
     const cleanGenre = assertSlug(stripSlugPrefix(genre, 'genres'), 'genre');
@@ -180,18 +240,31 @@ export class NekopoiClient {
     );
   }
 
-  /** Full indexed genre list. */
+  /**
+   * Full indexed genre list (`name`, `url`, `slug`).
+   * Useful as input for {@link getByGenre}.
+   */
   async getGenres(): Promise<GenreItem[]> {
     return this.cached(['getGenres'], () => scrapeGenres(this.axiosInstance));
   }
 
-  /** Single post detail including download links. */
+  /**
+   * Single post/episode detail including grouped download links by episode and resolution.
+   *
+   * @param urlOrSlug - Full post URL or bare slug path segment.
+   * @returns Metadata plus `downloads` tree (`episode` → resolutions → host links).
+   * @remarks Download URLs are often wrapped by third-party shorteners (e.g. ouo.io).
+   */
   async getPostDetails(urlOrSlug: string): Promise<AnimeDetail> {
     const value = assertUrlOrSlug(urlOrSlug);
     return this.cached(['getPostDetails', value], () => scrapePost(this.axiosInstance, value));
   }
 
-  /** Series profile with episode list. */
+  /**
+   * Series profile with synopsis, status, score, and the full episode list.
+   *
+   * @param urlOrSlug - Full series URL, `/hentai/...` path, or bare series slug.
+   */
   async getSeriesDetails(urlOrSlug: string): Promise<SeriesDetail> {
     const value = assertUrlOrSlug(urlOrSlug);
     return this.cached(['getSeriesDetails', value], () =>
@@ -199,7 +272,10 @@ export class NekopoiClient {
     );
   }
 
-  /** Full A–Z hentai index. */
+  /**
+   * Full A–Z hentai index (can be a large response).
+   * Metadata is primarily extracted from tooltip HTML when present.
+   */
   async getHentaiList(): Promise<AnimeSeries[]> {
     return this.cached(['getHentaiList'], () => scrapeHentaiList(this.axiosInstance));
   }

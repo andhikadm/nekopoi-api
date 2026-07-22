@@ -22,12 +22,18 @@ export async function scrapeSeriesDetails(
     const $ = cheerio.load(html);
 
     const title = cleanText(
-      $('.nk-series-info h2').text().replace(/^Unduh\s+["']|["']\s+Indonesian.*$/gi, '')
+      $('.nk-series-info h2')
+        .text()
+        .replace(/^Unduh\s+["']|["']\s+Indonesian.*$/gi, '')
     );
     const thumbnail = extractBgImage($('.nk-series-poster').attr('style'));
     const synopsis =
       cleanText($('.nk-series-synopsis p').text()) ||
-      cleanText($('.nk-series-synopsis').text().replace(/Episode Terbaru[\s\S]*?Unduh/gi, ''));
+      cleanText(
+        $('.nk-series-synopsis')
+          .text()
+          .replace(/Episode Terbaru[\s\S]*?Unduh/gi, '')
+      );
 
     let japaneseTitle = '';
     let type = 'Hentai';
@@ -110,9 +116,10 @@ export async function scrapeSeriesDetails(
     };
   } catch (error) {
     if (error instanceof NekopoiScrapeError || error instanceof NekopoiParseError) throw error;
-    throw new NekopoiScrapeError(
-      `Failed to scrape series details: ${getErrorMessage(error)}`,
-      { cause: error, path: targetPath, statusCode: getAxiosStatus(error) }
-    );
+    throw new NekopoiScrapeError(`Failed to scrape series details: ${getErrorMessage(error)}`, {
+      cause: error,
+      path: targetPath,
+      statusCode: getAxiosStatus(error),
+    });
   }
 }
